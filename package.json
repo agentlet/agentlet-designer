@@ -1,0 +1,14 @@
+{
+  "name": "agentlet-designer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Generate agentlets from a live web page",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "inject": "node skills/create-agentlet/scripts/inject.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.54.1"
+  }
+}

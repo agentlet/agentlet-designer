@@ -1,0 +1,5 @@
+node_modules/
+.cache/
+workspace/
+.playwright-mcp/
+.DS_Store
