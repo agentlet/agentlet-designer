@@ -15,17 +15,19 @@ When asked to create, generate or design an agentlet, use the
 ## Layout
 
 - `skills/create-agentlet/SKILL.md`: the procedure.
-- `skills/create-agentlet/scripts/`: `observe.mjs` (page summary),
-  `prepare.mjs` (scaffold via agentlet-core's plop generator, made
-  injectable), `serve.mjs` (static server with CORS), `inject.mjs`
-  (inject into a page, verify with a scenario, JSON report).
+- `skills/create-agentlet/scripts/`: `observe.ts` (page summary),
+  `prepare.ts` (scaffold via agentlet-core's plop generator, made
+  injectable, module turned into `src/module.ts`), `sync.ts` (type-check,
+  then esbuild into `dist/module-bundle.js`), `serve.ts` (static server
+  with CORS), `inject.ts` (inject into a page, verify with a scenario,
+  JSON report), `types.ts` (report and scenario types).
 - `workspace/`: generated agentlets, git-ignored.
 - `.cache/`: prebuilt core bundle per agentlet-core version, git-ignored.
 
 ## Relations
 
 - `../agentlet-core` is the framework and its scaffold generator. Read it
-  (especially `src/types/public-api.d.ts`) but never edit it from here.
+  (its declarations are also installed as the `agentlet-core` dev dependency) but never edit it from here.
   Override its location with `AGENTLET_CORE_DIR`.
 - `../agentlet-demo-apps` holds neutral mock business apps used as targets
   for demos and tests. Serve them with
@@ -33,8 +35,16 @@ When asked to create, generate or design an agentlet, use the
 
 ## Conventions
 
-- Scripts are dependency-light Node ESM, only `playwright` is installed.
-- Keep the scaffold workarounds in `prepare.mjs` documented with the reason;
+- TypeScript everywhere. Scripts run directly with Node's type stripping
+  (Node 22.18 or later, no build step), so use erasable syntax only: no
+  `enum`, no `namespace`, no constructor parameter properties
+  (`erasableSyntaxOnly` enforces it). Import local files with their `.ts`
+  extension.
+- `npm run typecheck` must pass before committing.
+- Generated modules are TypeScript scripts typed by agentlet-core's own
+  declarations (the `agentlet-core` dev dependency); verification scenarios
+  are `verify.mts` files typed by `scripts/types.ts`.
+- Keep the scaffold workarounds in `prepare.ts` documented with the reason;
   remove each one when agentlet-core fixes the underlying issue.
 - English everywhere, sentence case, no em dashes, en dashes or middle dots.
 - Conventional Commits, lowercase subject, no trailing period.
