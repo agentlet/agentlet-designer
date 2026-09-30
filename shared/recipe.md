@@ -41,12 +41,13 @@ the goal with their selectors, and how to reach them.
 ## Step 3: scaffold
 
 Use agentlet-core's own generator (minimal template), made injectable into
-any origin. The skill wraps this in `scripts/prepare.mjs`.
+any origin. The skill wraps this in `scripts/prepare.ts`.
 
 ## Step 4: implement
 
-Edit only the module file. Keep it a plain IIFE that uses `window.agentlet`,
-with no `import`. Follow `api-cheatsheet.md`:
+Edit only the module file, a TypeScript script typed against
+agentlet-core's declarations, with no `import` or `export`, that only uses
+`window.agentlet`. Follow `api-cheatsheet.md`:
 
 - `name` equals the kebab name used at scaffold time.
 - `patterns` targets the page (substring of its URL), not `'*'`.
@@ -54,6 +55,9 @@ with no `import`. Follow `api-cheatsheet.md`:
 - Query the host page with `document`, the panel with `container` or
   `window.agentlet.ui.query`.
 - Keep `window.<camelName>AgentletModule = <Class>;` at the end.
+
+Type-check before every injection. A type error is almost always a wrong
+API call, and it is far cheaper to catch than a failed browser run.
 
 ## Step 5: inject and verify
 

@@ -6,9 +6,16 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "inject": "node skills/create-agentlet/scripts/inject.mjs"
+    "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
-    "playwright": "1.54.1"
+    "@types/node": "^26.6.3",
+    "agentlet-core": "^2.1.1",
+    "esbuild": "^0.28.2",
+    "playwright": "1.54.1",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=22.18"
   }
 }

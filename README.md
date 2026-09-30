@@ -15,7 +15,8 @@ application, is planned in `agentlet/`. Both follow the same recipe in
 
 ## Requirements
 
-- Node.js 20 or later, Python 3 (to serve the demo apps).
+- Node.js 22.18 or later (the scripts are TypeScript, run directly by
+  Node), and Python 3 to serve the demo apps.
 - [Claude Code](https://claude.com/claude-code).
 - A checkout of [agentlet-core](https://github.com/agentlet/agentlet-core)
   next to this repository (or `AGENTLET_CORE_DIR` pointing at one).
@@ -40,15 +41,27 @@ claude "Create an agentlet for http://localhost:8000/crm/index.html that exports
 ```
 
 The first run builds a cache of the core bundle (about one minute). Later
-agentlets scaffold in about a second.
+agentlets scaffold in a few seconds.
+
+Generated modules are written in TypeScript and type-checked against
+agentlet-core's own declarations before each injection, so a wrong API
+call is caught in half a second instead of a failed browser run.
 
 ## Use the scripts directly
 
 ```bash
-node skills/create-agentlet/scripts/observe.mjs --url http://localhost:8000/crm/index.html
-node skills/create-agentlet/scripts/prepare.mjs crm-helper
-node skills/create-agentlet/scripts/serve.mjs workspace/crm-helper/dist 8080
-node skills/create-agentlet/scripts/inject.mjs --url http://localhost:8000/crm/index.html --module crm-helper --headed --keep
+node skills/create-agentlet/scripts/observe.ts --url http://localhost:8000/crm/index.html
+node skills/create-agentlet/scripts/prepare.ts crm-helper
+# edit workspace/crm-helper/src/module.ts, then type-check and compile it:
+node skills/create-agentlet/scripts/sync.ts crm-helper
+node skills/create-agentlet/scripts/serve.ts workspace/crm-helper/dist 8080
+node skills/create-agentlet/scripts/inject.ts --url http://localhost:8000/crm/index.html --module crm-helper --headed --keep
+```
+
+## Development
+
+```bash
+npm run typecheck
 ```
 
 ## Layout
