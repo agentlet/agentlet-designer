@@ -167,13 +167,14 @@ Reply with:
 
 ## Known pitfalls (already handled, do not undo)
 
-- The scaffold's relative registry and module URLs break injection into
-  another origin. `prepare.ts` makes them absolute.
+- Before agentlet-core#82 (runtime 2.2.0), the scaffold's relative registry
+  and module URLs broke injection into another origin. `prepare.ts` makes
+  them absolute only for older scaffolds and runtimes.
 - agentlet-core loads scripts cross-origin, so the server must send CORS
   headers. Use `serve.ts`, not `python -m http.server`, for `dist/`.
-- `prepare.ts` lets the registry register the module
-  (`skipRegistryModuleRegistration = false`), so the cached core bundle
-  works for every agentlet name.
+- The registry registers the module, so the cached core bundle works for
+  every agentlet name. Newer scaffolds do this already; for older ones
+  `prepare.ts` sets `skipRegistryModuleRegistration = false`.
 - The scaffold's `src/module.js` is replaced by `src/module.ts`, and the
   project's webpack config only builds the core bundle. Do not add the
   module back as a webpack entry.
