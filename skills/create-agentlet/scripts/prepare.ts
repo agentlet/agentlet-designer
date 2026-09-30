@@ -8,18 +8,25 @@
 // What it does, and why:
 // 1. Runs `plop agentlet --minimal` from the agentlet-core checkout, so the
 //    project layout always matches the framework's current scaffold.
-// 2. Rewrites the registry URL in src/index.js and the module URL in
-//    dist/agentlets-registry.js to absolute http://localhost:<port>/ URLs.
-//    Both are relative in the scaffold and get resolved against the host
-//    page, which breaks injection into any page other than the dev server.
+// 2. Works around two agentlet-core issues fixed in agentlet-core#82, only
+//    while they still apply (remove this step once every supported core
+//    has the fix):
+//    - Scaffolds before #82 set a relative registry URL in src/index.js,
+//      resolved against the host page, and registered the module from
+//      src/index.js by name. prepare.ts makes the registry URL absolute and
+//      lets the registry register the module. Newer scaffolds resolve the
+//      registry from the core bundle's own URL and need neither change.
+//    - agentlet-core runtimes before 2.2.0 resolve the registry entry's
+//      "./module-bundle.js" against the host page. prepare.ts makes it
+//      absolute for those runtimes.
 // 3. Replaces src/module.js with a typed src/module.ts starter and a
 //    tsconfig.json that loads agentlet-core's own declarations. webpack now
 //    only builds the core bundle; the module is compiled by sync.ts
 //    (type check, then esbuild), which the project's `npm run build` reuses.
 // 4. Reuses a cached core-bundle.js (and PDF.js worker) instead of running
-//    webpack: core-bundle.js only depends on the agentlet-core version and
-//    the registry URL, so it is identical for every agentlet on the same
-//    port. The first run builds the cache (about one minute).
+//    webpack: core-bundle.js only depends on the agentlet-core version (and
+//    on the port, for scaffolds before #82), so it is identical for every
+//    agentlet. The first run builds the cache (about one minute).
 //
 // Pass --full-build to also run `npm install && npm run build` in the new
 // project, so it builds on its own without this repository.
@@ -81,27 +88,49 @@ function scaffold(projectName: string): string {
   return dir;
 }
 
-// Steps 2 and 3 of the header comment.
-function adaptScaffold(dir: string, projectName: string): void {
-  const indexJs = path.join(dir, 'src', 'index.js');
-  replaceOnce(
-    indexJs,
-    "agentletConfig.registryUrl = './agentlets-registry.js';",
-    `agentletConfig.registryUrl = '${base}/agentlets-registry.js';`,
-  );
-  // Let the registry register the module itself. The scaffold skips that and
-  // registers window.<camelName>AgentletModule from src/index.js instead,
-  // which would tie the cached core-bundle.js to one agentlet name.
-  replaceOnce(
-    indexJs,
-    'agentletConfig.skipRegistryModuleRegistration = true;',
-    'agentletConfig.skipRegistryModuleRegistration = false;',
-  );
-  replaceOnce(
-    path.join(dir, 'dist', 'agentlets-registry.js'),
-    '"url": "./module-bundle.js"',
-    `"url": "${base}/module-bundle.js"`,
-  );
+// Scaffolds from agentlet-core#82 on resolve the registry and the PDF.js
+// worker against the core bundle's own script URL (resolveFromBundle).
+const legacyScaffold = !fs
+  .readFileSync(path.join(coreDir, 'plop-templates', 'agentlet', 'src', 'index.js'), 'utf8')
+  .includes('resolveFromBundle(');
+
+// First agentlet-core runtime that resolves registry entry URLs against the
+// registry instead of the host page.
+const ENTRY_URL_FIX_VERSION = '2.2.0';
+
+function versionAtLeast(version: string, minimum: string): boolean {
+  const parse = (v: string) => v.split(/[.-]/).slice(0, 3).map(Number);
+  const [a, b] = [parse(version), parse(minimum)];
+  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] > b[i];
+  return true;
+}
+
+// Steps 2 and 3 of the header comment. `runtimeVersion` is the agentlet-core
+// version bundled into core-bundle.js, or null while building that bundle.
+function adaptScaffold(dir: string, projectName: string, runtimeVersion: string | null): void {
+  if (legacyScaffold) {
+    const indexJs = path.join(dir, 'src', 'index.js');
+    replaceOnce(
+      indexJs,
+      "agentletConfig.registryUrl = './agentlets-registry.js';",
+      `agentletConfig.registryUrl = '${base}/agentlets-registry.js';`,
+    );
+    // Let the registry register the module itself. The old scaffold skips
+    // that and registers window.<camelName>AgentletModule from src/index.js
+    // instead, which would tie the cached core-bundle.js to one agentlet name.
+    replaceOnce(
+      indexJs,
+      'agentletConfig.skipRegistryModuleRegistration = true;',
+      'agentletConfig.skipRegistryModuleRegistration = false;',
+    );
+  }
+  if (runtimeVersion && !versionAtLeast(runtimeVersion, ENTRY_URL_FIX_VERSION)) {
+    replaceOnce(
+      path.join(dir, 'dist', 'agentlets-registry.js'),
+      '"url": "./module-bundle.js"',
+      `"url": "${base}/module-bundle.js"`,
+    );
+  }
 
   // TypeScript module: webpack keeps building the core bundle only.
   replaceOnce(path.join(dir, 'webpack.config.js'), "    module: './src/module.js',\n", '');
@@ -209,35 +238,48 @@ function coreVersion(): string {
   return JSON.parse(fs.readFileSync(path.join(coreDir, 'package.json'), 'utf8')).version;
 }
 
-function ensureCoreCache(): string {
-  const cacheDir = path.join(repoRoot, '.cache', `core-${coreVersion()}-port-${port}`);
-  if (fs.existsSync(path.join(cacheDir, 'core-bundle.js'))) return cacheDir;
+// Records the agentlet-core version npm actually installed for the cached
+// bundle (the scaffold depends on ^<core version>, so it can be newer).
+const CACHE_META = 'cache.json';
+
+function ensureCoreCache(): { cacheDir: string; runtimeVersion: string } {
+  const cacheDir = path.join(repoRoot, '.cache', `core-${coreVersion()}${legacyScaffold ? `-port-${port}` : ''}`);
+  const metaFile = path.join(cacheDir, CACHE_META);
+  if (fs.existsSync(path.join(cacheDir, 'core-bundle.js')) && fs.existsSync(metaFile)) {
+    return { cacheDir, runtimeVersion: JSON.parse(fs.readFileSync(metaFile, 'utf8')).runtimeVersion };
+  }
 
   log(`Building the core bundle cache in ${path.relative(repoRoot, cacheDir)} (once, about one minute)`);
   const tmpName = `zz-cache-${Date.now()}`;
   const tmpDir = scaffold(tmpName);
   try {
-    adaptScaffold(tmpDir, tmpName);
+    adaptScaffold(tmpDir, tmpName, null);
     run('npm install --no-audit --no-fund', tmpDir);
     run('npx webpack --mode production', tmpDir);
+    const runtimeVersion: string = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, 'node_modules', 'agentlet-core', 'package.json'), 'utf8'),
+    ).version;
     fs.mkdirSync(cacheDir, { recursive: true });
     for (const f of ['core-bundle.js', 'pdf.worker.min.mjs']) {
       const from = path.join(tmpDir, 'dist', f);
       if (fs.existsSync(from)) fs.copyFileSync(from, path.join(cacheDir, f));
     }
+    fs.writeFileSync(metaFile, `${JSON.stringify({ runtimeVersion }, null, 2)}\n`);
+    return { cacheDir, runtimeVersion };
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
-  return cacheDir;
 }
 
 ensureCoreDeps();
-const cacheDir = ensureCoreCache();
+const { cacheDir, runtimeVersion } = ensureCoreCache();
 
 log(`Scaffolding ${name}`);
 const dir = scaffold(name);
-adaptScaffold(dir, name);
-for (const f of fs.readdirSync(cacheDir)) fs.copyFileSync(path.join(cacheDir, f), path.join(dir, 'dist', f));
+adaptScaffold(dir, name, runtimeVersion);
+for (const f of fs.readdirSync(cacheDir)) {
+  if (f !== CACHE_META) fs.copyFileSync(path.join(cacheDir, f), path.join(dir, 'dist', f));
+}
 
 const rel = (p: string): string => path.relative(repoRoot, p);
 const sync = `node ${rel(path.join(here, 'sync.ts'))} ${name}`;
