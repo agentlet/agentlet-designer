@@ -23,25 +23,46 @@ application, is planned in `agentlet/`. Both follow the same recipe in
 - For the demo: [agentlet-demo-apps](https://github.com/agentlet/agentlet-demo-apps)
   next to this repository.
 
+## Install
+
+Clone the three repositories side by side, then install this one. The
+scripts look for `../agentlet-core`, and the demo command below serves
+`../agentlet-demo-apps`.
+
 ```bash
+mkdir agentlet && cd agentlet
+git clone https://github.com/agentlet/agentlet-designer.git
+git clone https://github.com/agentlet/agentlet-core.git
+git clone https://github.com/agentlet/agentlet-demo-apps.git
+cd agentlet-designer
 npm install
 npx playwright install chromium
 ```
 
+You do not need to install anything inside `agentlet-core`: the first run
+of `prepare.ts` runs `npm install` there once.
+
 ## Run the demo
+
+In a first terminal, from the `agentlet-designer` folder, serve the demo
+apps:
 
 ```bash
 python3 -m http.server 8000 --directory ../agentlet-demo-apps
 ```
 
-Then, in another terminal, from this folder:
+In a second terminal, from the same folder, start Claude Code with a
+request:
 
 ```bash
 claude "Create an agentlet for http://localhost:8000/crm/index.html that exports the customer table to Excel and prefills the new customer form"
 ```
 
-The first run builds a cache of the core bundle (about one minute). Later
-agentlets scaffold in a few seconds.
+Claude Code asks you to approve the commands and the Playwright MCP server
+declared in `.mcp.json`. The first run installs agentlet-core's
+dependencies and builds a cache of the core bundle, which took about three
+minutes when this was last checked. Later agentlets scaffold in a few
+seconds.
 
 Generated modules are written in TypeScript and type-checked against
 agentlet-core's own declarations before each injection, so a wrong API
