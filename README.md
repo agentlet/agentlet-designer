@@ -62,6 +62,7 @@ node skills/create-agentlet/scripts/inject.ts --url http://localhost:8000/crm/in
 
 ```bash
 npm run typecheck
+node --test
 ```
 
 ### Dependency pins
@@ -83,6 +84,31 @@ npm run typecheck
   `playwright` MCP server starts.
 - `agentlet-core` follows its latest minor (`^2.2.0`); `npm audit` should
   report no vulnerabilities after any bump.
+
+## Dependency scan
+
+The `Security` workflow scans dependencies for known vulnerabilities on
+every pull request, on pushes to main and nightly, using the shared
+[dependency-scan action](https://github.com/agentlet/.github/tree/main/actions/dependency-scan).
+Everything here runs on a developer machine, so the whole
+`package-lock.json` is a blocking scope. The MCP server in `.mcp.json` runs
+through npx and is outside the lockfile: `scripts/mcp-sbom.mjs` writes a
+CycloneDX SBOM of it (`reports/security/sbom-mcp.cdx.json`, git-ignored)
+and fails when an npx package is not pinned to an exact version.
+
+A finding blocks when it is critical or high with a known fix, or when it
+is in the CISA Known Exploited Vulnerabilities catalog. A failing nightly
+run opens or updates one issue labelled `security`.
+
+Exceptions live in `security/vulnerability-exceptions.json` (empty by
+default). An exception is a deliberate, time-boxed decision to accept a
+known risk, for example when no fix exists and the affected code cannot be
+reached. Each entry needs an `id` (GHSA or CVE), a `reason`, an `owner` and
+an `expires` date (`YYYY-MM-DD`), and an expired entry fails the gate until
+it is renewed or removed. Exception changes are reviewed in a pull request
+like code.
+
+To run the scan locally, see the action's README.
 
 ## Layout
 
