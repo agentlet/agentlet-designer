@@ -10,9 +10,9 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
-    "agentlet-core": "^2.1.1",
+    "agentlet-core": "^2.2.0",
     "esbuild": "^0.28.2",
-    "playwright": "1.54.1",
+    "playwright": "1.61.1",
     "typescript": "^7.0.2"
   },
   "engines": {
