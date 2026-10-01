@@ -66,14 +66,19 @@ npm run typecheck
 
 ### Dependency pins
 
-- `playwright` is pinned to exactly `1.55.1`, the first release that fixes
+- `playwright` is pinned to exactly `1.61.1`. Versions below 1.55.1 have
   GHSA-7mvr-c777-76hp (browser downloads without TLS certificate
-  verification). It stays exact because newer Playwright browsers do not
-  install on macOS 13. Raise it only after checking the browsers install
-  on every machine that runs the scripts.
-- `.mcp.json` runs `@playwright/mcp` at an exact version instead of
-  `@latest`, so the code executed on a developer machine only changes
-  through a commit. To bump it, run `npm view @playwright/mcp version`,
+  verification). The upper bound is 1.61.x: Playwright 1.62 and later ship
+  no chromium build for macOS 13 (checked with
+  `npx playwright@<version> install --dry-run chromium`), while 1.61.x
+  installs and launches there. Do not go above 1.61.x while macOS 13
+  machines run the scripts.
+- `.mcp.json` runs `@playwright/mcp` at an exact version (`0.0.76`, which
+  depends on Playwright 1.61.0-alpha) instead of `@latest`, so the code
+  executed on a developer machine only changes through a commit. Keep it
+  coupled to the `playwright` pin: bump both together, and choose an MCP
+  version whose `playwright` dependency stays within 1.55.1 to 1.61.x. List
+  candidates with `npm view @playwright/mcp@<version> dependencies`,
   edit the version in `.mcp.json`, restart Claude Code and check that the
   `playwright` MCP server starts.
 - `agentlet-core` follows its latest minor (`^2.2.0`); `npm audit` should
