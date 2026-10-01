@@ -64,6 +64,21 @@ node skills/create-agentlet/scripts/inject.ts --url http://localhost:8000/crm/in
 npm run typecheck
 ```
 
+### Dependency pins
+
+- `playwright` is pinned to exactly `1.55.1`, the first release that fixes
+  GHSA-7mvr-c777-76hp (browser downloads without TLS certificate
+  verification). It stays exact because newer Playwright browsers do not
+  install on macOS 13. Raise it only after checking the browsers install
+  on every machine that runs the scripts.
+- `.mcp.json` runs `@playwright/mcp` at an exact version instead of
+  `@latest`, so the code executed on a developer machine only changes
+  through a commit. To bump it, run `npm view @playwright/mcp version`,
+  edit the version in `.mcp.json`, restart Claude Code and check that the
+  `playwright` MCP server starts.
+- `agentlet-core` follows its latest minor (`^2.2.0`); `npm audit` should
+  report no vulnerabilities after any bump.
+
 ## Layout
 
 ```
