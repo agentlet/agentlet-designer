@@ -68,6 +68,62 @@ Generated modules are written in TypeScript and type-checked against
 agentlet-core's own declarations before each injection, so a wrong API
 call is caught in half a second instead of a failed browser run.
 
+## What is sent to the model
+
+The skill runs inside Claude Code, so everything the scripts print, and
+every screenshot Claude opens, becomes part of the conversation with the
+model and is sent to Anthropic. `observe.ts` is the main source. It opens
+the page in a headless Chromium and collects the page structure plus a
+little text, and does not read the values typed into fields:
+
+- The page title and URL.
+- Up to 20 visible headings (`h1` to `h3`), each cut to 80 characters.
+- For each form and each field outside a form: a CSS selector, tag, input
+  type, label, required flag, whether it is visible, and, for `select`
+  elements, the first 15 option values.
+- For each table: a CSS selector, the headers, the number of body rows,
+  the text of the first body row (each text block cut to 60 characters),
+  the columns whose cells hold several text blocks, and pagination hints
+  such as "Showing 1-10 of 30" and next or previous buttons.
+- Up to 40 visible buttons, tabs and `a.btn` links: selector, text and
+  `data-*` attributes.
+- With `--screenshot`, a PNG of the visible viewport (1440 by 900), which
+  Claude then looks at. A screenshot shows whatever the page displays,
+  including any data already typed or loaded.
+
+Later steps send more of the same kind. `inject.ts` prints a JSON report
+and can save a screenshot of the page with the panel open. A verification
+scenario can put page content in that report, for example the first rows
+of an exported spreadsheet. If you also let Claude use the Playwright MCP
+browser, as `SKILL.md` allows, page snapshots from that browser are sent
+as well. The generated module and your prompts are sent too, as in any
+Claude Code session.
+
+Use a staging copy, demo data or a local mock app. Do not point the skill
+at a production page that shows customer data unless you are allowed to
+share that data with Anthropic under your own agreements.
+
+## Limitations
+
+- Pages behind a login cannot be observed yet. `observe.ts` and `inject.ts`
+  each start a fresh Chromium with no saved session: they do not load
+  cookies, a storage state or a browser profile, and they do not attach
+  to a browser you already have open. A page that needs a sign-in shows
+  the login screen, or fails to load, in the scripts.
+- The generated module is a bookmarklet payload. Its AI actions, if any,
+  call the AI provider (OpenAI by default) directly from the browser,
+  using a key that the user enters in the agentlet panel. agentlet-core
+  keeps that key in `localStorage` by default, on the page's origin, and
+  the request goes from the page to the provider (or to `OPENAI_BASE_URL`
+  when set).
+  The generated code must not contain a key, and the skill checks
+  `ai.isAvailable()` before any AI call. Decide for yourself whether that
+  fits your data and your key handling.
+- Verification scenarios drive the real page: they click the module's
+  buttons, which can fill and submit forms, download files, or trigger
+  whatever the page does on a click. The same goes for `observe.ts
+  --click`. Run both against non-production targets only.
+
 ## Use the scripts directly
 
 ```bash
